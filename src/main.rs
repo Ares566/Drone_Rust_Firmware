@@ -7,23 +7,10 @@ use embedded_hal::blocking::delay::DelayMs;
 use i2cdev::linux::LinuxI2CError;
 use linux_embedded_hal::{Delay, I2cdev};
 use mpu6050::{device::MOT_DETECT_STATUS, *};
+use troyka_hat::*;
 
-// fn main() {
 //     let mut log = new_file_log("firmware.log");
 //     log.add_log("Start");
-//     let led = LED::new(18); // sets a variable for the led pin
-//     loop {
-//         // starts a loop
-//         led.on();
-//         log.add_log("led.on");
-//         sleep(Duration::from_secs(1)); // creates a 1 second pause
-//         led.off();
-//         log.add_log("led.off");
-//         sleep(Duration::from_secs(1));
-//     }
-
-//     log.add_log("End");
-// }
 
 struct RPData {
     pitch: f32,
@@ -31,14 +18,22 @@ struct RPData {
     yaw: f32,
 }
 const MPU6050_KOEF_COMPL: f32 = 0.9934;
-const DELTA_TIME: u16 = 750;
+const DELTA_TIME: u16 = 250;
 fn main() -> Result<(), Mpu6050Error<LinuxI2CError>> {
-    let i2c = I2cdev::new("/dev/i2c-1").map_err(Mpu6050Error::I2c)?;
-
     let mut delay = Delay;
+
+    let i2c = I2cdev::new("/dev/i2c-1").map_err(Mpu6050Error::I2c)?;
     let mut mpu = Mpu6050::new(i2c);
 
+    let i2c = I2cdev::new("/dev/i2c-1")
+        .map_err(TroykaHatError::I2c)
+        .expect("Failed to i2c");
+    let mut th = troyka_hat::TroykaHat::new(i2c);
+
     mpu.init(&mut delay)?;
+
+    th.init(&mut delay);
+    th.pwm_freq(50);
 
     let mut count: u16 = 0;
     let mut rp_data = RPData {
@@ -47,7 +42,6 @@ fn main() -> Result<(), Mpu6050Error<LinuxI2CError>> {
         yaw: 0.0,
     };
     loop {
-        
         // TODO MPU initial calibration
 
         // get roll and pitch estimate
@@ -76,7 +70,23 @@ fn main() -> Result<(), Mpu6050Error<LinuxI2CError>> {
             rp_data.pitch * (1.0 - MPU6050_KOEF_COMPL) + pitch4macc * MPU6050_KOEF_COMPL;
         rp_data.roll = rp_data.roll * (1.0 - MPU6050_KOEF_COMPL) + roll4macc * MPU6050_KOEF_COMPL;
 
-        println!("Углы: pitch={0} ,roll={1}", rp_data.pitch, rp_data.roll);
+        // servo testing
+        let mid_serv_val: f32 = (28.0 + 8.0) / 2.0;
+        let mut serv_val: u8 = (mid_serv_val + rp_data.roll / 6.9) as u8;
+
+        if rp_data.roll > 45.0 {
+            serv_val = 28
+        }
+        if rp_data.roll < -45.0 {
+            serv_val = 8
+        }
+
+        th.analog_write(7, serv_val);
+
+        println!(
+            "Углы: pitch={0} ,roll={1}, serv={2}",
+            rp_data.pitch, rp_data.roll, serv_val
+        );
         println!("_____________________________________");
 
         delay.delay_ms(DELTA_TIME);

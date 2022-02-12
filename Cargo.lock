@@ -97,6 +97,7 @@ dependencies = [
  "mpu6050",
  "nalgebra 0.30.1",
  "rust_gpiozero",
+ "troyka_hat",
 ]
 
 [[package]]
@@ -531,6 +532,17 @@ dependencies = [
  "libc",
  "wasi",
  "winapi",
+]
+
+[[package]]
+name = "troyka_hat"
+version = "0.1.0"
+source = "git+https://github.com/Ares566/troyka_hat#2cbbe5e1c4b704abe0a2dfae6713811db6de52fe"
+dependencies = [
+ "embedded-hal",
+ "i2cdev",
+ "libm",
+ "linux-embedded-hal",
 ]
 
 [[package]]
